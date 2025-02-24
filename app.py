@@ -6,9 +6,22 @@ from werkzeug.utils import secure_filename
 import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'your-secret-key'
-app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
-app.config['UPLOAD_FOLDER'] = 'uploads'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key')
+
+# Promenite konfiguraciju baze
+if os.environ.get('RENDER'):
+    # Koristite SQLite za Render.com
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+    app.config['UPLOAD_FOLDER'] = '/tmp/uploads'  # Koristite /tmp folder na Render.com
+else:
+    # Lokalna konfiguracija
+    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///users.db'
+    app.config['UPLOAD_FOLDER'] = 'uploads'
+
+# Kreirajte upload folder ako ne postoji
+if not os.path.exists(app.config['UPLOAD_FOLDER']):
+    os.makedirs(app.config['UPLOAD_FOLDER'])
+
 db = SQLAlchemy(app)
 login_manager = LoginManager()
 login_manager.init_app(app)
@@ -106,7 +119,7 @@ def logout():
     logout_user()
     return redirect(url_for('login'))
 
-if __name__ == '__main__':
+def init_db():
     with app.app_context():
         db.create_all()
         # Create admin user if not exists
@@ -119,4 +132,9 @@ if __name__ == '__main__':
             )
             db.session.add(admin)
             db.session.commit()
+
+# Initialize database
+init_db()
+
+if __name__ == '__main__':
     app.run(debug=True)
